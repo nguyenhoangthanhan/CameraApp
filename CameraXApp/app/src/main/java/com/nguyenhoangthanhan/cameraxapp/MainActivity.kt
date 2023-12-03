@@ -13,6 +13,8 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture.OnImageCapturedCallback
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
+import androidx.camera.video.FileOutputOptions
+import androidx.camera.video.Recording
 import androidx.camera.view.CameraController
 import androidx.camera.view.LifecycleCameraController
 import androidx.compose.foundation.layout.Arrangement
@@ -30,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -42,8 +45,12 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
+import java.io.File
 
 class MainActivity : ComponentActivity() {
+
+    private var recording: Recording? = null
+
     @OptIn(ExperimentalMaterialApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -137,6 +144,19 @@ class MainActivity : ComponentActivity() {
                                     contentDescription = "Take photo"
                                 )
                             }
+                            IconButton(
+                                onClick = {
+                                    takePhoto(
+                                        controller = controller,
+                                        onPhotoTaken = viewModel::onTakePhoto
+                                    )
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Videocam,
+                                    contentDescription = "Record video"
+                                )
+                            }
                         }
                     }
                 }
@@ -148,6 +168,10 @@ class MainActivity : ComponentActivity() {
         controller: LifecycleCameraController,
         onPhotoTaken: (Bitmap) -> Unit
     ) {
+        if (!hasRequiredPermission()){
+            return
+        }
+
         controller.takePicture(
             ContextCompat.getMainExecutor(applicationContext),
             object : OnImageCapturedCallback() {
@@ -177,6 +201,24 @@ class MainActivity : ComponentActivity() {
                 }
             }
         )
+    }
+
+    private fun recordVideo(controller: LifecycleCameraController){
+        if (recording != null){
+            recording?.stop()
+            recording = null
+            return
+        }
+
+        if (!hasRequiredPermission()){
+            return
+        }
+
+        val outputFile = File(filesDir, "my-recording.mp4")
+        recording = controller.startRecording(
+            FileOutputOptions.Builder()
+        )
+
     }
 
     private fun hasRequiredPermission(): Boolean {
