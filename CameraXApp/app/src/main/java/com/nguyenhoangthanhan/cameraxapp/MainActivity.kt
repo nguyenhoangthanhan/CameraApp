@@ -5,18 +5,22 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.nguyenhoangthanhan.cameraxapp.ui.theme.CameraXAppTheme
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.util.Log
+import android.widget.Toast
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture.OnImageCapturedCallback
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.video.FileOutputOptions
 import androidx.camera.video.Recording
+import androidx.camera.video.VideoRecordEvent
 import androidx.camera.view.CameraController
 import androidx.camera.view.LifecycleCameraController
+import androidx.camera.view.video.AudioConfig
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -146,10 +150,7 @@ class MainActivity : ComponentActivity() {
                             }
                             IconButton(
                                 onClick = {
-                                    takePhoto(
-                                        controller = controller,
-                                        onPhotoTaken = viewModel::onTakePhoto
-                                    )
+                                    recordVideo(controller)
                                 }
                             ) {
                                 Icon(
@@ -168,7 +169,7 @@ class MainActivity : ComponentActivity() {
         controller: LifecycleCameraController,
         onPhotoTaken: (Bitmap) -> Unit
     ) {
-        if (!hasRequiredPermission()){
+        if (!hasRequiredPermission()) {
             return
         }
 
@@ -203,21 +204,46 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    private fun recordVideo(controller: LifecycleCameraController){
-        if (recording != null){
+    @SuppressLint("MissingPermission")
+    private fun recordVideo(controller: LifecycleCameraController) {
+        if (recording != null) {
             recording?.stop()
             recording = null
             return
         }
 
-        if (!hasRequiredPermission()){
+        if (!hasRequiredPermission()) {
             return
         }
 
         val outputFile = File(filesDir, "my-recording.mp4")
         recording = controller.startRecording(
-            FileOutputOptions.Builder()
-        )
+            FileOutputOptions.Builder(outputFile).build(),
+            AudioConfig.create(true),
+            ContextCompat.getMainExecutor(applicationContext)
+        ) { event ->
+            when (event) {
+                is VideoRecordEvent.Finalize -> {
+                    if (event.hasError()) {
+                        recording?.close()
+                        recording = null
+
+                        Toast.makeText(
+                            applicationContext,
+                            "Video capture failed",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }else{
+                        Toast.makeText(
+                            applicationContext,
+                            "Video capture succeeded",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            }
+
+        }
 
     }
 
